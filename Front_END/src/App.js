@@ -1,10 +1,11 @@
-// src/App.js
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
-import NavBar from './components/NavBar';
-import Login from './components/Login';
-import Register from './components/Register';
-import './App.css'
+import { BrowserRouter as Router, Route, Routes} from 'react-router-dom';
+import './App.css';
+import NavBar from './Component/NavBar/NavBar';
+import Login from './Component/Login/Login';
+import Register from './Component/SignUp/Register';
+import Home from './Component/Home/Home';
+import Profile from './Component/Profile/Profile';
 
 function App() {
     const [token, setToken] = useState(localStorage.getItem('token'));
@@ -20,9 +21,10 @@ function App() {
         <Router>
             <NavBar token={token} setToken={setToken} />
             <Routes>
-                <Route path="/" element={<Navigate to="/login" />} /> {/* Redirect to login */}
+                <Route path="/" element={<Home />} />
                 <Route path="/login" element={<Login setToken={setToken} />} />
                 <Route path="/register" element={<Register />} />
+                <Route path="/profile" element={<Profile/>} />
                 {/* Add more routes as needed */}
             </Routes>
         </Router>
