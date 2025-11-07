@@ -1,0 +1,570 @@
+OpenMP (Open Multi-Processing: Open source API)
+
+About: 
+- Supports multi-platform shared-memory multiprocessing programming in C,C++ and Fortran on Multiple OS
+- Portable and scalable parallel programming model
+- Uses shared memory and multiple threads
+- Provides compiler directives, runtime library routines, and environment variables
+- It enables programmers to write parallel applications that can run efficiently on systems ranging from normal desktop computers to supercomputers.
+- OpenMP helps programs run faster by dividing work among available CPU cores.
+- Increase Pefromance and reduce execution time 
+
+Component 
+1) Compiler Directives --> #pragma omp ... instructions to parallelize code
+2) Runtime Library Routines --> Functions to manage threads (e.g., omp_get_thread_num())
+3) Environment Variables --> Control execution behavior (e.g., OMP_NUM_THREADS)
+
+Execution Model:
+- Master thread begins execution
+- Creates worker threads in parallel region
+- Threads share global memory, can have private data
+
+Advantages:
+- Easy to parallelize existing code
+- Scales with number of CPU cores
+- Reduces program execution time drastically
+
+Installation 
+> sudo apt update
+> gcc --version 
+> g++ --version 
+> sudo apt install gcc g++ -y
+> gcc -fopenmp -dM -E - < /dev/null | grep -i open
+
+Compilation 
+> gcc program.c -o program -fopenmp
+> g++ program.cpp -o program -fopenmp
+
+Execution 
+> ./program
+
+----------------------------------------------------------------
+                       Experiment 01 
+----------------------------------------------------------------
+
+Header file 
+> #include <omp.h>
+> #include <time.h>
+
+clock_t obj
+obj = clock();
+
+Thread 
+omp_set_num_threads(num_threads); --> set runtime Thread count
+omp_get_thread_num() --> returns unique thread_id 
+#pragma omp parallel --> Parallel Block
+
+#pragma omp parallel{
+    // Execute thread here (Parallel Block)
+}
+
+FLOPS (Floating Point Operations Per Second)  
+FLOPS = Number of cores × Clock speed × FLOPs per cycle
+
+----------------------------------------------------------------
+                       Experiment 02
+----------------------------------------------------------------
+
+--> Vector Scalar Addtion 
+--> Calculate value of Pi 
+
+timestamp = omp_get_wtime();
+
+Thread 
+#pragma omp parallel for --> Parallel Thread Block
+#pragma omp atomic --> Ensures safe accumulation of sum.
+
+SpeedUp = (Ts/Tp)
+
+----------------------------------------------------------------
+                       Experiment 03
+----------------------------------------------------------------
+
+--> Scalar product of two vectors (dot product)
+--> 2D Matrix addition, 
+--> For 1D Vector (size=200) and scalar addition, Write a OpenMP code with the following: i. 
+Use STATIC schedule and set the loop iteration chunk size to various sizes when changing 
+the size of your matrix. Analyze the speedup. ii. Use DYNAMIC schedule and set the loop 
+iteration chunk size to various sizes when changing the size of your matrix. Analyze the 
+speedup. iii. Demonstrate the use of nowait clause.
+
+> Static Schedule (Best when iteration workload is uniform)
+> Dynamic Schedule (Helps when workload is unpredictable or uneven)
+> Chunk size (Impacts load balancing and thread overhead)
+> nowait Clause (Prevents implicit barrier, useful for independent task)
+
+Thread 
+#pragma omp parallel for reduction(+:var) -->  Combines results from parallel threads
+#pragma omp parallel for collapse(number)
+#pragma omp parallel for schedule(static, chunk) --> Equal division of workload
+#pragma omp parallel for schedule(dynamic, chunk) --> Threads get new tasks dynamically if free
+#pragma omp for nowait --> Skips barrier → thread does not wait
+
+----------------------------------------------------------------
+                       Experiment 04
+----------------------------------------------------------------
+
+-->  Fibonacci Computation
+-->  Producer Consumer Problem
+
+Thread 
+#pragma omp parallel --> Creates multiple threads for parallel execution
+#pragma omp single --> Ensures only one thread initiates the tasks. 
+#pragma omp task --> Defines independent units of work to be executed in parallel.
+#pragma omp taskwait --> Waits for all created tasks to complete before proceeding. 
+
+firstprivate(i) --> Ensures each task gets its own copy of i. 
+taskwait --> Synchronizes dependent calculations.
+
+Thread 
+// Divides work between producer and consumer. 
+#pragma omp parallel sections{
+
+  // Assigns specific blocks to different threads.
+  #pragma omp section
+
+  // Assigns specific blocks to different threads.
+  #pragma omp section
+
+}
+
+// Ensures mutual exclusion when accessing shared data
+#pragma omp critical{
+
+
+}
+
+----------------------------------------------------------------
+                       Experiment 05
+----------------------------------------------------------------
+
+--> Implementation of Matrix-Matrix Multiplication
+--> Implementation of Matrix-scalar Multiplication. 
+--> Implementation of Matrix-Vector Multiplication.
+--> Implementation of Prefix sum. 
+
+Thread
+#pragma omp parallel for collapse(number)
+#pragma omp parallel for{
+
+}
+
+
+
+////////////////////////////////////////////////////////////////
+                       N-queen 
+////////////////////////////////////////////////////////////////
+
+/* nqueen_omp.c */
+#include <stdio.h>
+#include <stdlib.h>
+#include <omp.h>
+
+int n;
+int solutions = 0;
+
+int safe(int row, int col, int *cols) {
+    for (int r = 0; r < row; r++) {
+        int c = cols[r];
+        if (c == col || abs(c - col) == abs(r - row)) return 0;
+    }
+    return 1;
+}
+
+void solve_row(int row, int *cols) {
+    if (row == n) {
+        #pragma omp atomic
+        solutions++;
+        return;
+    }
+    for (int col = 0; col < n; col++) {
+        if (safe(row, col, cols)) {
+            cols[row] = col;
+            solve_row(row + 1, cols);
+        }
+    }
+}
+
+int main(int argc, char **argv) {
+    n = (argc > 1) ? atoi(argv[1]) : 8;
+    int max_threads = omp_get_max_threads();
+
+    #pragma omp parallel
+    {
+        int tid = omp_get_thread_num();
+        #pragma omp for schedule(dynamic)
+        for (int col0 = 0; col0 < n; col0++) {
+            int *cols = (int*)malloc(n * sizeof(int));
+            cols[0] = col0;
+            solve_row(1, cols);
+            free(cols);
+        }
+    }
+
+    printf("N=%d Solutions=%d\n", n, solutions);
+    return 0;
+}
+
+
+////////////////////////////////////////////////////////////////
+                       tsp
+////////////////////////////////////////////////////////////////
+
+/* tsp_omp.c */
+#include <stdio.h>
+#include <stdlib.h>
+#include <limits.h>
+#include <omp.h>
+
+int n;
+int **dist;
+int best_cost = INT_MAX;
+
+void tsp_rec(int cur, int visited_mask, int cost_so_far, int start, int *order) {
+    if (cost_so_far >= best_cost) return; // pruning
+    if (visited_mask == (1<<n)-1) {
+        cost_so_far += dist[cur][start];
+        #pragma omp critical
+        {
+            if (cost_so_far < best_cost) best_cost = cost_so_far;
+        }
+        return;
+    }
+    for (int nxt = 0; nxt < n; nxt++) {
+        if (!(visited_mask & (1<<nxt))) {
+            int newcost = cost_so_far + dist[cur][nxt];
+            order[__builtin_popcount(visited_mask)] = nxt;
+            tsp_rec(nxt, visited_mask | (1<<nxt), newcost, start, order);
+        }
+    }
+}
+
+int main(int argc, char **argv) {
+    n = (argc > 1) ? atoi(argv[1]) : 8; // keep small like <=10 for brute force
+    dist = malloc(n * sizeof(int*));
+    for (int i=0;i<n;i++){ dist[i]=malloc(n*sizeof(int)); for(int j=0;j<n;j++) dist[i][j]= (i==j?0: rand()%100+1); }
+
+    int start = 0;
+    #pragma omp parallel for schedule(dynamic)
+    for (int second = 1; second < n; second++) {
+        int *order = malloc(n * sizeof(int));
+        int visited = (1<<start) | (1<<second);
+        order[0] = start; order[1] = second;
+        tsp_rec(second, visited, dist[start][second], start, order);
+        free(order);
+    }
+
+    printf("TSP best cost (approx) for n=%d is %d\n", n, best_cost);
+    return 0;
+}
+
+
+////////////////////////////////////////////////////////////////
+                       palindrome
+////////////////////////////////////////////////////////////////
+
+/* palindrome_omp.c */
+#include <stdio.h>
+#include <string.h>
+#include <omp.h>
+
+int main(int argc, char **argv) {
+    char *s = (argc>1) ? argv[1] : "racecar";
+    int n = strlen(s);
+    int is_pal = 1;
+
+    #pragma omp parallel for shared(is_pal)
+    for (int i = 0; i < n/2; i++) {
+        if (!is_pal) continue; // help pruning; note relaxed
+        if (s[i] != s[n-1-i]) {
+            #pragma omp atomic write
+            is_pal = 0;
+        }
+    }
+
+    printf("String \"%s\" is %s palindrome\n", s, is_pal ? "" : "not a");
+    return 0;
+}
+
+////////////////////////////////////////////////////////////////
+                       Fibonacci
+////////////////////////////////////////////////////////////////
+
+/* fib_tasks.c */
+#include <stdio.h>
+#include <stdlib.h>
+#include <omp.h>
+
+long long fib_seq(int n) {
+    if (n < 2) return n;
+    return fib_seq(n-1) + fib_seq(n-2);
+}
+
+long long fib_task(int n, int cutoff) {
+    if (n <= cutoff) return fib_seq(n);
+    long long x, y;
+    #pragma omp task shared(x)
+    x = fib_task(n-1, cutoff);
+    #pragma omp task shared(y)
+    y = fib_task(n-2, cutoff);
+    #pragma omp taskwait
+    return x + y;
+}
+
+int main(int argc, char **argv) {
+    int n = (argc>1) ? atoi(argv[1]) : 30;
+    int cutoff = 10; // tune for performance
+    long long result;
+
+    double t0 = omp_get_wtime();
+    #pragma omp parallel
+    {
+        #pragma omp single
+        result = fib_task(n, cutoff);
+    }
+    double t1 = omp_get_wtime();
+
+    printf("fib(%d) = %lld (time %.3f s)\n", n, result, t1 - t0);
+    return 0;
+}
+
+
+////////////////////////////////////////////////////////////////
+            Matrix × Vector Multiplication (OpenMP)
+////////////////////////////////////////////////////////////////
+
+/* matvec_omp.c */
+#include <stdio.h>
+#include <stdlib.h>
+#include <omp.h>
+
+int main(int argc, char **argv) {
+    int n = (argc>1)?atoi(argv[1]):1000;
+    double *x = malloc(n*sizeof(double));
+    double **A = malloc(n*sizeof(double*));
+    double *y = malloc(n*sizeof(double));
+    for (int i=0;i<n;i++){
+        A[i] = malloc(n*sizeof(double));
+        y[i]=0.0; x[i]=1.0; for(int j=0;j<n;j++) A[i][j]= (i==j?2.0:1.0);
+    }
+
+    double t0 = omp_get_wtime();
+    #pragma omp parallel for
+    for (int i=0;i<n;i++){
+        double sum=0.0;
+        for (int j=0;j<n;j++) sum += A[i][j]*x[j];
+        y[i]=sum;
+    }
+    double t1 = omp_get_wtime();
+    printf("Computed y[0]=%f time=%.4f s\n", y[0], t1-t0);
+
+    return 0;
+}
+
+////////////////////////////////////////////////////////////////
+         Vector × Vector (Dot Product)
+////////////////////////////////////////////////////////////////
+
+/* dot_omp.c */
+#include <stdio.h>
+#include <stdlib.h>
+#include <omp.h>
+
+int main(int argc, char **argv) {
+    int n = (argc>1)?atoi(argv[1]):1000000;
+    double *a = malloc(n*sizeof(double));
+    double *b = malloc(n*sizeof(double));
+    for (int i=0;i<n;i++){ a[i]=1.0; b[i]=2.0; }
+
+    double sum = 0.0;
+    double t0 = omp_get_wtime();
+    #pragma omp parallel for reduction(+:sum)
+    for (int i=0;i<n;i++) sum += a[i]*b[i];
+    double t1 = omp_get_wtime();
+
+    printf("Dot product = %f time=%.4f s\n", sum, t1-t0);
+    return 0;
+}
+
+////////////////////////////////////////////////////////////////
+     Primes from 1..n (Sieve of Eratosthenes with OpenMP)
+////////////////////////////////////////////////////////////////
+
+/* sieve_omp.c */
+#include <stdio.h>
+#include <stdlib.h>
+#include <math.h>
+#include <omp.h>
+
+int main(int argc, char **argv) {
+    int n = (argc>1)?atoi(argv[1]):10000000;
+    char *is_comp = calloc(n+1, 1); // 0 = prime, 1 = composite
+    is_comp[0]=is_comp[1]=1;
+    int limit = sqrt(n);
+
+    for (int p = 2; p <= limit; p++) {
+        if (!is_comp[p]) {
+            #pragma omp parallel for schedule(dynamic)
+            for (int k = p*p; k <= n; k += p) is_comp[k] = 1;
+        }
+    }
+
+    int count=0;
+    #pragma omp parallel for reduction(+:count)
+    for (int i=2;i<=n;i++) if(!is_comp[i]) count++;
+
+    printf("Primes up to %d: %d\n", n, count);
+    free(is_comp);
+    return 0;
+}
+
+////////////////////////////////////////////////////////////////
+     8-Puzzle (IDA* style with OpenMP initial branching)
+////////////////////////////////////////////////////////////////
+
+/* eight_puzzle_ida.c */
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <omp.h>
+
+#define N 3
+int target[9] = {1,2,3,4,5,6,7,8,0};
+
+int manhattan(int *s) {
+    int dist=0;
+    for(int i=0;i<9;i++){
+        int val = s[i];
+        if(val==0) continue;
+        int tr = (val-1)/N, tc = (val-1)%N;
+        int r = i/N, c = i%N;
+        dist += abs(tr-r)+abs(tc-c);
+    }
+    return dist;
+}
+
+int neighbors[4][2] = {{-1,0},{1,0},{0,-1},{0,1}};
+
+int dfs(int *state, int g, int bound, int prev_zero_pos) {
+    int h = manhattan(state);
+    int f = g + h;
+    if (f > bound) return f;
+    if (h==0) return -1; // found
+    int min = 1e9;
+    int zpos;
+    for (int i=0;i<9;i++) if(state[i]==0) zpos=i;
+    int zr=zpos/N, zc=zpos%N;
+    for (int k=0;k<4;k++){
+        int nr=zr+neighbors[k][0], nc=zc+neighbors[k][1];
+        if(nr<0||nr>=N||nc<0||nc>=N) continue;
+        int np = nr*N+nc;
+        if (np==prev_zero_pos) continue; // avoid backtrack
+        int tmp = state[np];
+        state[zpos]=tmp; state[np]=0;
+        int t = dfs(state, g+1, bound, zpos);
+        if (t==-1) return -1;
+        if (t < min) min = t;
+        state[np]=tmp; state[zpos]=0;
+    }
+    return min;
+}
+
+int ida_star(int *start) {
+    int bound = manhattan(start);
+    int res;
+    while (1) {
+        // parallelize first layer moves
+        int zpos;
+        for (int i=0;i<9;i++) if(start[i]==0) zpos=i;
+        int zr=zpos/N, zc=zpos%N;
+
+        int next_bound = 1e9;
+        int found = 0;
+
+        #pragma omp parallel
+        {
+            int *state = malloc(9*sizeof(int));
+            memcpy(state, start, 9*sizeof(int));
+            #pragma omp for schedule(dynamic)
+            for (int k=0;k<4;k++){
+                int nr=zr+neighbors[k][0], nc=zc+neighbors[k][1];
+                if(nr<0||nr>=N||nc<0||nc>=N) continue;
+                int np = nr*N+nc;
+                // apply move
+                int tmp = state[np];
+                state[zpos]=tmp; state[np]=0;
+                int t = dfs(state, 1, bound, zpos);
+                if (t == -1) {
+                    #pragma omp atomic write
+                    found = 1;
+                } else {
+                    #pragma omp critical
+                    if (t < next_bound) next_bound = t;
+                }
+                // undo for safety (state is thread-private here)
+                state[np]=tmp; state[zpos]=0;
+            }
+            free(state);
+        }
+
+        if (found) return bound; // solution found at depth 'bound'
+        if (next_bound == 1e9) return -1; // unsolvable
+        bound = next_bound;
+    }
+}
+
+int main() {
+    int start[9];
+    // example: solvable initial configuration
+    int example[9] = {1,2,3,4,5,6,0,7,8}; // change as needed
+    memcpy(start, example, sizeof(start));
+    int res = ida_star(start);
+    if (res >= 0) printf("Solution depth (approx) = %d\n", res);
+    else printf("No solution / too deep\n");
+    return 0;
+}
+
+////////////////////////////////////////////////////////////////
+     Subset Sum (OpenMP backtracking)
+////////////////////////////////////////////////////////////////
+
+/* subset_sum_omp.c */
+#include <stdio.h>
+#include <stdlib.h>
+#include <omp.h>
+
+int found = 0;
+
+void subset_rec(int *arr, int n, int idx, int sum, int target) {
+    if (found) return;
+    if (sum == target) { #pragma omp atomic write found = 1; return; }
+    if (idx == n || sum > target) return;
+    // pick
+    subset_rec(arr, n, idx+1, sum + arr[idx], target);
+    if (found) return;
+    // not pick
+    subset_rec(arr, n, idx+1, sum, target);
+}
+
+int main(int argc, char **argv) {
+    int n = 20; // small n recommended
+    int arr[20];
+    for (int i=0;i<n;i++) arr[i] = i%10 + 1;
+    int target = 50;
+
+    #pragma omp parallel for schedule(dynamic)
+    for (int i=0;i<n;i++) {
+        if (found) continue;
+        int *sub = malloc(n * sizeof(int));
+        // start with choose/not choose first element i as top-level split
+        if (arr[i] <= target) {
+            subset_rec(arr, n, i+1, arr[i], target);
+        }
+        // also try skipping i (some redundancy, but ensures coverage)
+        subset_rec(arr, n, i+1, 0, target);
+        free(sub);
+    }
+
+    printf("Subset sum %d %sfound\n", target, found ? "" : "not ");
+    return 0;
+}
