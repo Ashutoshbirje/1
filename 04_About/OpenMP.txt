@@ -4,12 +4,12 @@ About:
 - Supports multi-platform shared-memory multiprocessing programming in C,C++ and Fortran on Multiple OS
 - Portable and scalable parallel programming model
 - Uses shared memory and multiple threads
-- Provides compiler directives, runtime library routines, and environment variables
+- Provides compiler directives, runtime library routines and environment variables
 - It enables programmers to write parallel applications that can run efficiently on systems ranging from normal desktop computers to supercomputers.
 - OpenMP helps programs run faster by dividing work among available CPU cores.
 - Increase Pefromance and reduce execution time 
 
-Component 
+Component:
 1) Compiler Directives --> #pragma omp ... instructions to parallelize code
 2) Runtime Library Routines --> Functions to manage threads (e.g., omp_get_thread_num())
 3) Environment Variables --> Control execution behavior (e.g., OMP_NUM_THREADS)
@@ -42,17 +42,20 @@ Execution
                        Experiment 01 
 ----------------------------------------------------------------
 
+--> Write Hello world program in sequential 
+--> Write Hello world program in parallel 
+
 Header file 
 > #include <omp.h>
 > #include <time.h>
 
 clock_t obj
-obj = clock();
+obj = clock(); --> Measure execution time 
 
 Thread 
 omp_set_num_threads(num_threads); --> set runtime Thread count
 omp_get_thread_num() --> returns unique thread_id 
-#pragma omp parallel --> Parallel Block
+#pragma omp parallel --> Create Parallel Block
 
 #pragma omp parallel{
     // Execute thread here (Parallel Block)
@@ -68,11 +71,11 @@ FLOPS = Number of cores × Clock speed × FLOPs per cycle
 --> Vector Scalar Addtion 
 --> Calculate value of Pi 
 
-timestamp = omp_get_wtime();
+timestamp = omp_get_wtime(); --> Measure execution time 
 
 Thread 
-#pragma omp parallel for --> Parallel Thread Block
-#pragma omp atomic --> Ensures safe accumulation of sum.
+#pragma omp parallel for --> Parallel Thread Block / Distributes loop iterations among threads
+#pragma omp atomic --> Ensures safe accumulation of sum. / Prevents race condition on shared variable
 
 SpeedUp = (Ts/Tp)
 
@@ -83,6 +86,7 @@ SpeedUp = (Ts/Tp)
 --> Scalar product of two vectors (dot product)
 --> 2D Matrix addition, 
 --> For 1D Vector (size=200) and scalar addition, Write a OpenMP code with the following: i. 
+
 Use STATIC schedule and set the loop iteration chunk size to various sizes when changing 
 the size of your matrix. Analyze the speedup. ii. Use DYNAMIC schedule and set the loop 
 iteration chunk size to various sizes when changing the size of your matrix. Analyze the 
@@ -94,10 +98,10 @@ speedup. iii. Demonstrate the use of nowait clause.
 > nowait Clause (Prevents implicit barrier, useful for independent task)
 
 Thread 
-#pragma omp parallel for reduction(+:var) -->  Combines results from parallel threads
-#pragma omp parallel for collapse(number)
-#pragma omp parallel for schedule(static, chunk) --> Equal division of workload
-#pragma omp parallel for schedule(dynamic, chunk) --> Threads get new tasks dynamically if free
+#pragma omp parallel for reduction(+:var) -->  Combines results from parallel threads / Safely combines partial results
+#pragma omp parallel for collapse(number) --> Combine nested loops into 1 large iteration space
+#pragma omp parallel for schedule(static, chunk) --> Fixed equal chunk assigned once (Uniform workload)
+#pragma omp parallel for schedule(dynamic, chunk) --> Threads take new tasks dynamically (Imbalanced workload)
 #pragma omp for nowait --> Skips barrier → thread does not wait
 
 ----------------------------------------------------------------
@@ -113,8 +117,12 @@ Thread
 #pragma omp task --> Defines independent units of work to be executed in parallel.
 #pragma omp taskwait --> Waits for all created tasks to complete before proceeding. 
 
-firstprivate(i) --> Ensures each task gets its own copy of i. 
+shared --> Variable accessed by all threads
+private --> Each thread gets its own copy
+firstprivate(i) --> Private but initialized with master thread value 
+lastprivate --> Value from last iteration carries out
 taskwait --> Synchronizes dependent calculations.
+barrier --> All threads wait
 
 Thread 
 // Divides work between producer and consumer. 
@@ -257,7 +265,6 @@ int main(int argc, char **argv) {
     printf("TSP best cost (approx) for n=%d is %d\n", n, best_cost);
     return 0;
 }
-
 
 ////////////////////////////////////////////////////////////////
                        palindrome

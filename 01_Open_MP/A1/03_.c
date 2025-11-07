@@ -4,7 +4,7 @@
 
 int main() {
     clock_t start, end, time;
-   
+  
     start = clock();  
 
     int num_threads;
