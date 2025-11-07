@@ -4,6 +4,8 @@ About
 - STD and portable message passing system used to program parallel computers (Distributed Memory)
 - Multiple process communicate via message passing
 - MPI uses message passing b/w independent process each process has its own memory and they exchange data explicity 
+- MPI allows multiple independent processes to communicate by explicitly sending and receiving messages.
+- It is widely used in High-Performance Computing (HPC) applications like scientific simulations, weather forecasting, image processing, machine learning, etc.
 
 Parameter 
 1) Process - An inddependent program running on its own memory space
@@ -27,6 +29,21 @@ Communication function call
 5) MPI_Gather()    Collect data from all process into one 
 6) MPI_Reduce()    Perform operation like SUM, MAX, min
 7) MPI_Sendrecv()
+
+| Type                          | Usage                          | Example Experiment                 |
+| ----------------------------- | ------------------------------ | ---------------------------------- |
+| **Data Decomposition**        | Divide data among processes    | Array Sum, Dot Product, Matrix Ops |
+| **Task Decomposition**        | Divide tasks among processes   | Deadlock Example                   |
+| **Exploratory Decomposition** | Independent search per process | Speculative Decomposition          |
+
+| Feature         | MPI                             | OpenMP                           |
+| --------------- | ------------------------------- | -------------------------------- |
+| Memory Model    | Distributed                     | Shared                           |
+| Communication   | Explicit message passing        | Implicit (shared variables)      |
+| Scalability     | High                            | Limited to shared memory machine |
+| Code Complexity | Higher                          | Easier                           |
+| Best Use Case   | Cluster & multi-node processing | Single system multicore CPUs     |
+
 
 Installation 
 > sudo apt update
