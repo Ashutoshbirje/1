@@ -1,0 +1,9 @@
+> Visit https://colab.research.google.com/
+> Runtine > Chnage runtime type > T4 GPU > Save 
+
+CMD
+> !nvcc --version 
+> !pip install nvcc4jupyter
+> %load_ext nvcc4jupyter
+
+> Gemini :) 
