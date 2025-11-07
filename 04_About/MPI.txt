@@ -1,0 +1,346 @@
+MPI (Message Passing Interface)
+
+About 
+- STD and portable message passing system used to program parallel computers (Distributed Memory)
+- Multiple process communicate via message passing
+- MPI uses message passing b/w independent process each process has its own memory and they exchange data explicity 
+
+Parameter 
+1) Process - An inddependent program running on its own memory space
+2) Rank - A unique ID assigned to each process (Start from 0)
+3) Communicator - A group of process that can communicate with each other 
+4) Message Passing - Data exchange using MPI_SEND() AND MPI_RECV()
+
+Key Parts 
+1) MPI_Init(&argc,&argv) --> Initialize MPI env
+2) MPI_comm_size(MPI_COMM_WORLD,&size) --> Total number of process
+3) MPI_comm_rank(MPI_COMM_WORLD,&rank) --> Assigns rank to process 
+4) MPI_Finalize() --> End MPI env 
+5) MPI_comm_group(MPI_COMM_WORLD,&group)
+6) MPI_write()
+
+Communication function call
+1) MPI_Send()      Send MSG to another process 
+2) MPI_Recv()      Recive MSG from another process 
+3) MPI_Bcast()     Broadcast data from one process to multiple process 
+4) MPI_Scatter()   Split data from one process to many 
+5) MPI_Gather()    Collect data from all process into one 
+6) MPI_Reduce()    Perform operation like SUM, MAX, min
+7) MPI_Sendrecv()
+
+Installation 
+> sudo apt update
+> sudo apt install openmpi-bin openmpi-common libopenmpi-dev
+> mpicc --version
+> mpirun --version
+
+optional
+> sudo apt update
+> sudo apt install mpich
+> mpicc -v
+
+Compilation 
+> mpicc program.c -o program
+
+Execution 
+> mpirun --oversubscribe -np <number_of_process> ./program
+
+----------------------------------------------------------------
+                       Experiment 06 
+----------------------------------------------------------------
+
+--> Implement a simple hello world program by setting number of processes equal to 10
+--> Implement a program to display rank and communicator group of five processes
+--> Implement a MPI program to give an example of Deadlock.
+--> Implement blocking MPI send & receive to demonstrate Nearest neighbor exchange of data in a ring topology
+--> Write a MPI program to find the sum of all the elements of an array A of size
+    n. Elements of an array can be divided into two equals groups. The first [n/2]
+    elements are added by the first process, P0, and last [n/2] elements the by second process, P1. The two sums then are added to get the final result.
+
+----------------------------------------------------------------
+                       Experiment 07
+----------------------------------------------------------------
+
+--> Implement Matrix-Vector Multiplication using MPI. Use different number of processes and analyze the performance
+--> Implement Matrix-Matrix Multiplication using MPI. Use different number of processes and analyze the performance.
+
+----------------------------------------------------------------
+                       Experiment 08 
+----------------------------------------------------------------
+
+--> Study and implement 2D Convolution using MPI. Use a different number of processes and analyze the performance.
+--> Implement dot product using MPI. Use different number of processes and analyze the performance.
+
+----------------------------------------------------------------
+                       Experiment 09 
+----------------------------------------------------------------
+
+--> Exploratory & Speculative Decomposition 
+
+////////////////////////////////////////////////////////////////
+                       Bubble sort 
+////////////////////////////////////////////////////////////////
+
+// mpi_bubble_sort.c
+#include <mpi.h>
+#include <stdio.h>
+
+void bubbleSort(int arr[], int n) {
+    for(int i = 0; i < n-1; i++) {
+        for(int j = 0; j < n-i-1; j++) {
+            if(arr[j] > arr[j+1]) {
+                int temp = arr[j];
+                arr[j] = arr[j+1];
+                arr[j+1] = temp;
+            }
+        }
+    }
+}
+
+int main(int argc, char** argv) {
+    int arr[] = {5,3,8,6,2,7,4,1};
+    int n = 8;
+
+    MPI_Init(&argc, &argv);
+    int rank, size;
+
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+
+    int chunk = n / size;
+    int sub_arr[chunk];
+
+    MPI_Scatter(arr, chunk, MPI_INT, sub_arr, chunk, MPI_INT, 0, MPI_COMM_WORLD);
+    bubbleSort(sub_arr, chunk);
+    MPI_Gather(sub_arr, chunk, MPI_INT, arr, chunk, MPI_INT, 0, MPI_COMM_WORLD);
+
+    if(rank == 0) {
+        bubbleSort(arr, n);
+        printf("Sorted Array: ");
+        for(int i = 0; i < n; i++) printf("%d ", arr[i]);
+        printf("\n");
+    }
+
+    MPI_Finalize();
+    return 0;
+}
+
+////////////////////////////////////////////////////////////////
+                    Matrix scaler Multiplication 
+////////////////////////////////////////////////////////////////
+
+// mpi_matrix_scalar.c
+#include <mpi.h>
+#include <stdio.h>
+
+int main(int argc, char** argv) {
+    MPI_Init(&argc, &argv);
+
+    int rank, size;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+
+    int rows = 4, cols = 4;
+    int matrix[4][4] = {
+        {1,2,3,4},
+        {5,6,7,8},
+        {9,10,11,12},
+        {13,14,15,16}
+    };
+    int scalar = 3;
+
+    int part = rows / size;
+    int sub[part][cols];
+
+    MPI_Scatter(matrix, part*cols, MPI_INT,
+                sub, part*cols, MPI_INT, 0, MPI_COMM_WORLD);
+
+    for(int i = 0; i < part; i++)
+        for(int j = 0; j < cols; j++)
+            sub[i][j] *= scalar;
+
+    MPI_Gather(sub, part*cols, MPI_INT,
+               matrix, part*cols, MPI_INT, 0, MPI_COMM_WORLD);
+
+    if(rank == 0) {
+        printf("Result Matrix:\n");
+        for(int i = 0; i < rows; i++) {
+            for(int j = 0; j < cols; j++)
+                printf("%d ", matrix[i][j]);
+            printf("\n");
+        }
+    }
+
+    MPI_Finalize();
+    return 0;
+}
+
+
+////////////////////////////////////////////////////////////////
+         Send Msg from one process to other process 
+////////////////////////////////////////////////////////////////
+
+// mpi_send_message.c
+#include <mpi.h>
+#include <stdio.h>
+
+int main(int argc, char** argv) {
+    MPI_Init(&argc, &argv);
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+    if(rank == 0) {
+        int msg = 50;
+        MPI_Send(&msg, 1, MPI_INT, 1, 0, MPI_COMM_WORLD);
+        printf("Process 0 sent message: %d\n", msg);
+    } else if(rank == 1) {
+        int msg;
+        MPI_Recv(&msg, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        printf("Process 1 received message: %d\n", msg);
+    }
+
+    MPI_Finalize();
+    return 0;
+}
+
+
+////////////////////////////////////////////////////////////////
+                       Fibonacci
+////////////////////////////////////////////////////////////////
+
+// mpi_fibonacci.c
+#include <mpi.h>
+#include <stdio.h>
+
+int fib(int n) {
+    if(n <= 1) return n;
+    return fib(n-1) + fib(n-2);
+}
+
+int main(int argc, char** argv) {
+    MPI_Init(&argc, &argv);
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+    printf("Fibonacci(%d) = %d\n", rank, fib(rank));
+
+    MPI_Finalize();
+    return 0;
+}
+
+
+////////////////////////////////////////////////////////////////
+            MSG broadcast it to all process
+////////////////////////////////////////////////////////////////
+
+// mpi_broadcast.c
+#include <mpi.h>
+#include <stdio.h>
+
+int main(int argc, char** argv) {
+    MPI_Init(&argc, &argv);
+    int rank, msg;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+    if(rank == 0) msg = 99;
+    MPI_Bcast(&msg, 1, MPI_INT, 0, MPI_COMM_WORLD);
+
+    printf("Process %d received: %d\n", rank, msg);
+
+    MPI_Finalize();
+    return 0;
+}
+
+////////////////////////////////////////////////////////////////
+             Matrix -Vector Multiplication 
+////////////////////////////////////////////////////////////////
+
+// mpi_matrix_vector.c
+#include <mpi.h>
+#include <stdio.h>
+
+int main(int argc, char** argv) {
+    int matrix[4][4] = {
+        {1,2,3,4},
+        {4,3,2,1},
+        {5,6,7,8},
+        {8,7,6,5}
+    };
+    int vector[4] = {1,2,3,4};
+    int result[4];
+
+    MPI_Init(&argc, &argv);
+
+    int rank, size;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+
+    int local = 0;
+    for(int i = 0; i < 4; i++)
+        local += matrix[rank][i] * vector[i];
+
+    MPI_Gather(&local, 1, MPI_INT, result, 1, MPI_INT, 0, MPI_COMM_WORLD);
+
+    if(rank == 0) {
+        printf("Result: ");
+        for(int i = 0; i < 4; i++) printf("%d ", result[i]);
+        printf("\n");
+    }
+
+    MPI_Finalize();
+    return 0;
+}
+
+
+////////////////////////////////////////////////////////////////
+                     Matrix Addtion 
+////////////////////////////////////////////////////////////////
+
+// mpi_matrix_addition.c
+#include <mpi.h>
+#include <stdio.h>
+
+int main(int argc, char** argv) {
+    int A[4][4] = {
+        {1,2,3,4},
+        {5,6,7,8},
+        {9,10,11,12},
+        {13,14,15,16}
+    };
+    int B[4][4] = {
+        {1,1,1,1},
+        {2,2,2,2},
+        {3,3,3,3},
+        {4,4,4,4}
+    };
+    int C[4][4];
+
+    MPI_Init(&argc, &argv);
+
+    int rank, size, part = 4 / size;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+
+    int subA[part][4], subB[part][4], subC[part][4];
+
+    MPI_Scatter(A, part*4, MPI_INT, subA, part*4, MPI_INT, 0, MPI_COMM_WORLD);
+    MPI_Scatter(B, part*4, MPI_INT, subB, part*4, MPI_INT, 0, MPI_COMM_WORLD);
+
+    for(int i = 0; i < part; i++)
+        for(int j = 0; j < 4; j++)
+            subC[i][j] = subA[i][j] + subB[i][j];
+
+    MPI_Gather(subC, part*4, MPI_INT, C, part*4, MPI_INT, 0, MPI_COMM_WORLD);
+
+    if(rank == 0) {
+        printf("Result Matrix:\n");
+        for(int i = 0; i < 4; i++) {
+            for(int j = 0; j < 4; j++)
+                printf("%d ", C[i][j]);
+            printf("\n");
+        }
+    }
+
+    MPI_Finalize();
+    return 0;
+}
