@@ -1,0 +1,129 @@
+#!/bin/python3
+
+from openai import OpenAI
+import base64
+import os
+import mimetypes
+import sys
+import time
+
+endpoint = "https://models.github.ai/inference"
+token=[] 
+available_models = {
+    "1": "openai/gpt-4o",
+    "2": "openai/gpt-4.1"
+}
+api_key = token[0]
+
+print("\nSelect model:")
+for key, model in available_models.items():
+    print(f"{key}. {model}")
+model_choice = input("Enter model number: ").strip()
+model = available_models.get(model_choice, "openai/gpt-4.1")
+
+print("\nSelect input:")
+print("1. Type")
+print("2. Read")
+input_choice = input("Enter 1 or 2: ").strip()
+
+if input_choice == "1":
+    user_prompt = input("\nType prompt: ")
+else:
+    file_path = input("\nEnter file path: ").strip()
+    try:
+        with open(file_path, "r", encoding="utf-8") as f:
+            user_prompt = f.read().strip()
+    except FileNotFoundError:
+        print(f"Error: File '{file_path}' not found.")
+        exit(1)
+    except Exception as e:
+        print(f"Error reading file: {e}")
+        exit(1)
+
+attach_choice = input("\nDo you want to attach a file (image, text, etc.)? (y/n) ").strip().lower()
+attachment_data = None
+
+if attach_choice == "y":
+    attach_path = input("Enter path of the file to attach: ").strip()
+    if not os.path.exists(attach_path):
+        print("File not found.")
+    else:
+        mime_type, _ = mimetypes.guess_type(attach_path)
+        with open(attach_path, "rb") as f:
+            file_bytes = f.read()
+            b64_data = base64.b64encode(file_bytes).decode("utf-8")
+
+        attachment_data = {
+            "type": "image_url" if mime_type and mime_type.startswith("image/") else "file",
+            "source": f"data:{mime_type or 'application/octet-stream'};base64,{b64_data}",
+            "path": attach_path
+        }
+
+print("\nSelect output destination:")
+print("1. Print")
+print("2. Save")
+output_choice = input("Enter 1 or 2: ").strip()
+
+client = OpenAI(
+    base_url=endpoint,
+    api_key=api_key,
+)
+
+if attachment_data:
+    if attachment_data["type"] == "image_url":
+        user_content = [
+            {"type": "text", "text": user_prompt},
+            {"type": "image_url", "image_url": {"url": attachment_data["source"]}}
+        ]
+    else:
+        user_content = f"{user_prompt}\n\n(Attached file: {attachment_data['path']})"
+else:
+    user_content = user_prompt
+
+print("Wait....")
+response = None
+last_exception = None
+
+for idx, api_key in enumerate(token, start=1):
+    print(f"\nTrying token {idx}/{len(token)}...")
+    client = OpenAI(base_url=endpoint, api_key=api_key)
+    try:
+        response = client.chat.completions.create(
+            messages=[
+                {"role": "system", "content": "You are a professional in MPI, OpenMP, and CUDA."},
+                {"role": "user", "content": user_content},
+            ],
+            model=model,
+            temperature=1.0,
+            top_p=1.0,
+        )
+        
+        # print(f"Token {idx} succeeded.")
+        break
+    except Exception as e:
+        last_exception = e
+        print(f"Token {idx} failed with error: {e}")
+        time.sleep(5)
+        continue
+
+if response is None:
+    print("\nAll tokens failed. Last error:")
+    sys.exit(1)
+
+
+output_text = response.choices[0].message.content
+
+if output_text is None:
+    output_text = "No response from model."
+
+if output_choice == "1":
+    print("\nModel Response\n")
+    print(output_text)
+else:
+    output_file = input("Enter output file name (e.g., res.txt): ").strip()
+    try:
+        with open(output_file, "w", encoding="utf-8") as f:
+            f.write(output_text)
+        print(f"\nResponse saved to {output_file}")
+    except Exception as e:
+        print(f"Error saving file: {e}")
