@@ -8,7 +8,8 @@ import sys
 import time
 
 endpoint = "https://models.github.ai/inference"
-token=[] 
+
+token = []
 available_models = {
     "1": "openai/gpt-4o",
     "2": "openai/gpt-4.1"
